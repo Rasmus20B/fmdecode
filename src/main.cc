@@ -51,11 +51,12 @@ auto main(int argc, char **argv) -> int {
 
   while(offset) {
     auto s = get_sector_info(sp.subspan(offset, SEC_SIZE));
+    s.id = sectors.size();
     sectors.push_back(s);
     offset = SEC_SIZE * s.next;
   }
 
-  decode_sector(sectors[0]);
+  decode_sector(sectors[1]);
   // for(auto &s : sectors) {
   //   print_sector_header(s);
   // }

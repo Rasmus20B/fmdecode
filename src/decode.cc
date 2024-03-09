@@ -5,133 +5,247 @@ module;
 #include <vector>
 
 import sector;
-import chunk_types;
+import chunk;
 
 export module decode;
 
-struct FSNode {
-  std::unique_ptr<FSNode> parent;
-  std::vector<std::unique_ptr<FSNode>> children;
-};
+size_t get_path_int(std::span<uint8_t> buf) {
+  if(buf.size() == 1) {
+    return buf[0];
+  } else if(buf.size() == 2) {
+    return 0x80 + ((buf[0] & 0x7F) << 8) + buf[1];
+  }
+  return 0;
+}
 
-export auto decode_sector(Sector s) -> void {
-
+export auto decode_sector(Sector s) -> std::vector<std::unique_ptr<Chunk>> {
   auto &program = s.payload;
+  std::vector<std::unique_ptr<Chunk>> chunks;
   int offset = 0;
 
   while(offset < 4076) {
-
-    auto chunk_type = program[offset];
-
-    std::println("offset: {}. chunk_type: {:x}", offset, chunk_type);
-    switch(static_cast<FS_CHUNKS>(chunk_type)) {
-      case FS_CHUNKS::SD1:
-        offset += 2;
-        std::println("SIMPLE DATA1. Offset: {}", offset);
-        break;
-      case FS_CHUNKS::SD2:
-        offset += 2;
-        std::println("SIMPLE DATA2");
-        break;
-      case FS_CHUNKS::SD3:
-        offset += 7;
-        std::println("SIMPLE DATA3");
-        break;
-      case FS_CHUNKS::SD4:
-      case FS_CHUNKS::SD5:
-        offset += 7;
-        std::println("SIMPLE DATA4");
-        break;
-      case FS_CHUNKS::SD6:
-      case FS_CHUNKS::SD7:
-      case FS_CHUNKS::SD8:
-      case FS_CHUNKS::SD9:
-        offset += 2 * (chunk_type - 0x10) + 2;
-        std::println("SIMPLE DATA5");
-        break;
-      case FS_CHUNKS::SD10:
-      case FS_CHUNKS::SD11:
-        offset += 2;
-        std::println("SIMPLE DATA6");
-        break;
-      case FS_CHUNKS::SD12:
-      case FS_CHUNKS::SD13:
-      case FS_CHUNKS::SD14:
-      case FS_CHUNKS::SD15:
-        offset += 2 * (chunk_type - 0x19) + 1;
-        std::println("SIMPLE DATA7: offset: {}", offset);
-        break;
-
-
-      case FS_CHUNKS::KV1:
-        offset += 3;
-        break;
-      case FS_CHUNKS::KV2:
-      case FS_CHUNKS::KV3:
-      case FS_CHUNKS::KV4:
-      case FS_CHUNKS::KV5:
-        offset += 3 + (2 * (chunk_type - 1));
-        break;
-      case FS_CHUNKS::KV6: 
+    auto chunk_type = (program[offset]);
+    switch(chunk_type) {
+      case 0x00:
         {
-          auto n = program[offset + 1];
-          offset += n + 3;
+          offset++;
+          auto chunk = std::make_unique<ChunkSimpleData>();
+          chunk->type = FMP_CHUNK_TYPE::DATA_SIMPLE;
+          chunk->len = 1; 
+          chunk->loc = offset++;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+          break;
+        }
+      case 0x01:
+      case 0x02:
+      case 0x03:
+      case 0x04:
+      case 0x05:
+        {
+          offset++;
+          auto chunk = std::make_unique<ChunkSimpleKV>();
+          chunk->type = FMP_CHUNK_TYPE::REF_SIMPLE;
+          chunk->ref_loc = offset++;
+          chunk->loc = offset;
+          chunk->len = (chunk_type == 0x01) + 2 * (chunk_type - 0x01);
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
         }
         break;
-      case FS_CHUNKS::KV7:
-        offset += 4;
-        break;
-      case FS_CHUNKS::KV8:
-      case FS_CHUNKS::KV9:
-      case FS_CHUNKS::KV10:
-      case FS_CHUNKS::KV11:
-        offset += 3 + (2 * (chunk_type - 9));
-        break;
-      case FS_CHUNKS::KV12:
-        std::println("Found a simple kv.");
-        break;
-
-      case FS_CHUNKS::LKV1:
-      case FS_CHUNKS::LKV2:
-      case FS_CHUNKS::LKV3:
-      case FS_CHUNKS::LKV4:
-        std::println("Found a long KV");
-        break;
-
-      case FS_CHUNKS::SGD1:
-      case FS_CHUNKS::SGD2:
-        std::println("Found a Segmented Data chunk.");
-        break;
-
-      case FS_CHUNKS::Push1:
-      // case FS_CHUNKS::Push2:
-        offset += 2; 
-        break;
-      case FS_CHUNKS::Push3:
-      case FS_CHUNKS::Push4:
-        offset += 10;
-        break;
-      case FS_CHUNKS::Push5:
-        offset += 3;
-        std::println("FODUN A PUSH BRUH");
-        break;
-      case FS_CHUNKS::Push6:
-        offset += 4;
+      case 0x08:
+        {
+          offset++;
+          auto chunk = std::make_unique<ChunkSimpleData>();
+          chunk->type = FMP_CHUNK_TYPE::DATA_SIMPLE;
+          chunk->len = program[offset++];
+          chunk->loc = offset;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+          break;
+        }
+        
+      case 0x09:
+        {
+          offset++;
+          auto chunk = std::make_unique<ChunkSimpleKV>();
+          chunk->type = FMP_CHUNK_TYPE::REF_SIMPLE;
+          chunk->ref_loc = get_path_int(std::span<uint8_t>(program.begin() + offset, program.begin() + offset + 1));
+          offset += 2;
+          chunk->len = program[offset];
+          chunk->loc = offset;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+        }
         break;
 
-
-      case FS_CHUNKS::Pop1:
-      case FS_CHUNKS::Pop2:
-        offset += 1;
+      case 0x0E:
+        {
+          if(program[offset++] == 0xFF) {
+            offset++;
+            auto chunk = std::make_unique<ChunkSimpleKV>();
+            chunk->type = FMP_CHUNK_TYPE::REF_SIMPLE;
+            chunk->ref_loc = get_path_int(std::span<uint8_t>(program.begin() + offset, program.begin() + offset + 1));
+            offset += 2;
+            chunk->len = program[offset];
+            chunk->loc = offset;
+            offset += chunk->len;
+            chunks.push_back(std::move(chunk));
+          } else {
+            auto chunk = std::make_unique<ChunkSimpleData>();
+            chunk->type = FMP_CHUNK_TYPE::DATA_SIMPLE;
+            chunk->len = program[offset++];
+            chunk->loc = offset;
+            offset += chunk->len;
+            chunks.push_back(std::move(chunk));
+          }
+        }
         break;
 
-      case FS_CHUNKS::Noop:
-        offset += 1;
+      case 0x10:
+      case 0x11:
+        // TODO: Fix up fields 
+        {
+          auto chunk = std::make_unique<ChunkSimpleData>();
+          chunk->type = FMP_CHUNK_TYPE::DATA_SIMPLE;
+          chunk->len = 3 + (chunk_type - 0x10);
+          chunk->loc = offset++;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+        }
         break;
 
+      case 0x12:
+      case 0x13:
+      case 0x14:
+      case 0x15:
+        // TODO: Double check the length calculation
+        {
+          auto chunk = std::make_unique<ChunkSimpleData>();
+          chunk->type = FMP_CHUNK_TYPE::DATA_SIMPLE;
+          chunk->len = 1 + (2 *(chunk_type - 0x10));
+          chunk->loc = offset++;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+        }
+        break;
+
+      case 0x19:
+      case 0x23:
+        {
+          auto chunk = std::make_unique<ChunkSimpleData>();
+          chunk->type = FMP_CHUNK_TYPE::DATA_SIMPLE;
+          chunk->len = program[offset++];
+          chunk->loc = offset;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+        }
+
+      case 0x1A:
+      case 0x1B:
+      case 0x1C:
+      case 0x1D:
+        {
+          auto chunk = std::make_unique<ChunkSimpleData>();
+          chunk->type = FMP_CHUNK_TYPE::DATA_SIMPLE;
+          chunk->len = 2 * (chunk_type - 0x19);
+          chunk->loc = offset++;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+        }
+        break;
+
+      case 0x20:
+        {
+          auto chunk = std::make_unique<ChunkPathPush>();
+          chunk->type = FMP_CHUNK_TYPE::PATH_PUSH;
+          offset++;
+          if(program[offset+1] == 0xFE) {
+            offset++;
+            chunk->len = 8;
+          } else {
+            chunk->len = 1;
+          }
+          chunk->loc = offset;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+        }
+        break;
+
+      case 0x28:
+        {
+          auto chunk = std::make_unique<ChunkPathPush>();
+          chunk->type = FMP_CHUNK_TYPE::PATH_PUSH;
+          offset++;
+          chunk->loc = offset;
+          chunk->len = 2;
+          offset += chunk->len;
+        }
+        break;
+      case 0x30:
+        {
+          auto chunk = std::make_unique<ChunkPathPush>();
+          chunk->type = FMP_CHUNK_TYPE::PATH_PUSH;
+          offset++;
+          chunk->loc = offset;
+          chunk->len = 3;
+          offset += chunk->len;
+        }
+        break;
+
+      case 0xC0:
+        {
+          auto chunk = std::make_unique<ChunkPathPop>();
+          chunk->type = FMP_CHUNK_TYPE::PATH_POP;
+          chunks.push_back(std::move(chunk));
+          offset++;
+          break;
+        }
+
+      case 0xE0:
+        {
+          auto chunk = std::make_unique<ChunkPathPush>();
+          chunk->type = FMP_CHUNK_TYPE::PATH_PUSH;
+          offset++;
+          if(program[offset+1] == 0xFE) {
+            offset++;
+            chunk->len = 8;
+          } else {
+            chunk->len = 1;
+          }
+          chunk->loc = offset;
+          offset += chunk->len;
+          chunks.push_back(std::move(chunk));
+        }
+        break;
+
+      // case 0xFF:
+      //   {
+      //     chunk_type = program[offset++];
+      //     if(0x40 <= chunk_type <= 0x80) {
+      //       offset++;
+      //       auto chunk = std::make_unique<ChunkSimpleKV>();
+      //       chunk->type = FMP_CHUNK_TYPE::REF_SIMPLE;
+      //       chunk->ref_loc = get_path_int(std::span<uint8_t>(program.begin() + offset, program.begin() + offset + 1));
+      //       offset += 2;
+      //       chunk->len = program[offset];
+      //       chunk->loc = offset;
+      //       offset += chunk->len;
+      //       chunks.push_back(std::move(chunk));
+      //     } else if(0x01 <= 0x04) {
+      //
+      //     }
+      //   }
+        break;
       default:
-        std::println("Unimplemented : {:x}.", chunk_type);
-        return;
+        std::println("Unimplemented Chunk Type. {:x}", program[offset]);
     }
+    // std::println("offset: {}. chunk_type: {:x}", offset, chunk_type);
+    offset++;
   }
+
+  for(auto &c: chunks) {
+    c->print();
+  }
+  return chunks;
 }

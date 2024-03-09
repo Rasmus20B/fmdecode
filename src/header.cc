@@ -9,6 +9,11 @@ module;
 
 export module header;
 
+static constexpr std::array<std::string_view, 2> versions = {
+  "FP7",
+  "FMP12",
+};
+
 export enum class FM_VER {
   FM7,
   FM12
@@ -59,6 +64,6 @@ export auto get_header_info(std::span<uint8_t> header) -> Header {
 export void print_header_info(Header h) {
   std::println("Header\n======");
   std::println("Valid FM file: {}", h.valid);
-  std::println("FM Version: {}", std::to_underlying(h.version));
+  std::println("FM Version: {}", versions[std::to_underlying(h.version)]);
   std::println("File Created by Program: {}", h.created_by);
 }

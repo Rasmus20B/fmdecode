@@ -6,7 +6,8 @@ add_library(fm)
 target_sources(fm
   PUBLIC
   FILE_SET CXX_MODULES FILES
-  chunk_types.cc
+  block.cc
+  chunk.cc
   decode.cc
   header.cc 
   sector.cc
