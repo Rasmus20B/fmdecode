@@ -56,7 +56,7 @@ auto main(int argc, char **argv) -> int {
     offset = SEC_SIZE * s.next;
   }
 
-  decode_sector(sectors[1]);
+  decode_sector(sectors[3]);
   // for(auto &s : sectors) {
   //   print_sector_header(s);
   // }

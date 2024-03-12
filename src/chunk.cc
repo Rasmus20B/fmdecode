@@ -61,8 +61,37 @@ export struct ChunkSimpleKV : public ChunkBase<ChunkSimpleKV> {
     std::println("Chunk Type: Simple Key-Value.");
     std::println("===========================================");
   }
+  size_t loc;
+  size_t ref_len;
+  size_t ref_loc;
+};
+
+export struct ChunkLongKV : public ChunkBase<ChunkLongKV> {
+  void print() override {
+    std::println("===========================================");
+    std::println("Chunk Type: Simple Key-Value.");
+    std::println("===========================================");
+  }
 
   size_t loc;
   size_t ref_len;
   size_t ref_loc;
+};
+
+export struct ChunkSegmented : public ChunkBase<ChunkSegmented> {
+  void print() override {
+    std::println("===========================================");
+    std::println("Chunk Type: Segmented Data.");
+    std::println("===========================================");
+  }
+  size_t loc;
+  size_t seg_idx;
+};
+
+export struct ChunkNoop : public ChunkBase<ChunkNoop> {
+  void print() override {
+    std::println("===========================================");
+    std::println("Chunk Type: Noop.");
+    std::println("===========================================");
+  }
 };
