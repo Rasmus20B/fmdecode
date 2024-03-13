@@ -52,13 +52,12 @@ auto main(int argc, char **argv) -> int {
   while(offset) {
     auto s = get_sector_info(sp.subspan(offset, SEC_SIZE));
     s.id = sectors.size();
-    sectors.push_back(s);
+    sectors.push_back(std::move(s));
     offset = SEC_SIZE * s.next;
   }
 
-  decode_sector(sectors[3]);
-  // for(auto &s : sectors) {
-  //   print_sector_header(s);
-  // }
+  for(auto &s : sectors) {
+    auto c = decode_sector(s);
+  }
   return 0;
 }

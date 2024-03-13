@@ -41,7 +41,7 @@ export struct ChunkPathPush : public ChunkBase<ChunkPathPush> {
 export struct ChunkPathPop : public ChunkBase<ChunkPathPop> {
   void print() override {
     std::println("===========================================");
-    std::println("Chunk Type: Pop.");
+    std::println("Chunk Type: Path Pop.");
     std::println("===========================================");
   }
 };
@@ -69,7 +69,7 @@ export struct ChunkSimpleKV : public ChunkBase<ChunkSimpleKV> {
 export struct ChunkLongKV : public ChunkBase<ChunkLongKV> {
   void print() override {
     std::println("===========================================");
-    std::println("Chunk Type: Simple Key-Value.");
+    std::println("Chunk Type: Long Key-Value.");
     std::println("===========================================");
   }
 
