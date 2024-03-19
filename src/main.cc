@@ -3,6 +3,7 @@
 #include <span>
 #include <print>
 #include <vector>
+#include <iostream>
 #include <array>
 
 #include <sys/mman.h>
@@ -14,6 +15,8 @@ import header;
 
 import chunk;
 import decode;
+
+import tree;
 
 static constexpr size_t SEC_SIZE = 4096;
 
@@ -35,7 +38,6 @@ auto get_mapped_file(std::string_view path) -> std::span<uint8_t> {
 }
 
 
-
 auto main(int argc, char **argv) -> int {
 
   if(argc != 2) {
@@ -45,7 +47,7 @@ auto main(int argc, char **argv) -> int {
 
   std::span map = get_mapped_file(argv[1]);
   std::vector<Sector> sectors;
-  std::span sp { map };
+  std::span<uint8_t> sp { map };
   auto header = get_header_info(map.subspan(0, SEC_SIZE));
   print_header_info(header);
   auto offset = 4096;
@@ -57,14 +59,13 @@ auto main(int argc, char **argv) -> int {
     offset = SEC_SIZE * s.next;
   }
 
+  tree::Node root(0);
   std::vector<std::unique_ptr<Chunk>> chunks;
   for(auto &s : sectors) {
-    auto c = decode_sector(s);
+    auto c = decode_sector(s, sp.data(), &root);
     std::move(c.begin(), c.end(), std::back_inserter(chunks));
   }
-
-  for(auto &c: chunks) {
-    c->print();
-  }
+  std::println("Chunks: {}", chunks.size());
+  // tree::print(&root);
   return 0;
 }
