@@ -23,7 +23,9 @@ export namespace tree {
       print(root->left, depth);
       depth--;
     }
-    for(auto d: std::views::iota(0, depth * 2)) {
+
+
+    for([[maybe_unused]] auto d: std::views::iota(0, depth * 2)) {
       std::print(" ");
     }
 
